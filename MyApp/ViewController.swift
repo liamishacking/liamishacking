@@ -16,7 +16,6 @@ class ViewController: UIViewController {
 
     private func setupAudioSession() {
         do {
-            // Allow audio to play even when phone is on silent
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
                 mode: .moviePlayback,
@@ -37,12 +36,9 @@ class ViewController: UIViewController {
         }
 
         let videoURL = URL(fileURLWithPath: videoPath)
-
-        // Create player item and check audio tracks
         let playerItem = AVPlayerItem(url: videoURL)
-        player = AVPlayer(playerItem: playerItem)
 
-        // Make sure volume is up
+        player = AVPlayer(playerItem: playerItem)
         player?.volume = 1.0
         player?.isMuted = false
 
@@ -59,7 +55,6 @@ class ViewController: UIViewController {
             playerVC.didMove(toParent: self)
         }
 
-        // Observe when video ends
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(videoDidFinishPlaying),
@@ -67,7 +62,6 @@ class ViewController: UIViewController {
             object: player?.currentItem
         )
 
-        // Observe player item status
         playerItem.addObserver(
             self,
             forKeyPath: #keyPath(AVPlayerItem.status),
@@ -84,30 +78,30 @@ class ViewController: UIViewController {
         change: [NSKeyValueChangeKey: Any]?,
         context: UnsafeMutableRawPointer?
     ) {
-        if keyPath == #keyPath(AVPlayerItem.status) {
-            let status: AVPlayerItem.Status
-            if let statusNumber = change?[.newKey] as? NSNumber {
-                status = AVPlayerItem.Status(rawValue: statusNumber.intValue) ?? .unknown
-            } else {
-                status = .unknown
-            }
+        guard keyPath == #keyPath(AVPlayerItem.status) else { return }
 
-            switch status {
-            case .readyToPlay:
-                print("Player ready to play")
-                print("Audio tracks: \(player?.currentItem?.tracks.filter {
-                    $0.assetTrack?.mediaType == .audio
-                }.count ?? 0)")
-                player?.volume = 1.0
-                player?.isMuted = false
-                player?.play()
-            case .failed:
-                print("Player failed: \(player?.currentItem?.error?.localizedDescription ?? "unknown error")")
-            case .unknown:
-                print("Player status unknown")
-            @unknown default:
-                break
-            }
+        let statusValue = change?[.newKey] as? NSNumber
+        let status = AVPlayerItem.Status(rawValue: statusValue?.intValue ?? -1) ?? .unknown
+
+        switch status {
+        case .readyToPlay:
+            let audioTrackCount = player?.currentItem?.tracks.filter {
+                $0.assetTrack?.mediaType == .audio
+            }.count ?? 0
+            print("Player ready - audio tracks found: \(audioTrackCount)")
+            player?.volume = 1.0
+            player?.isMuted = false
+            player?.play()
+
+        case .failed:
+            let errorMessage = player?.currentItem?.error?.localizedDescription ?? "unknown"
+            print("Player failed: \(errorMessage)")
+
+        case .unknown:
+            print("Player status unknown")
+
+        @unknown default:
+            break
         }
     }
 
@@ -120,13 +114,12 @@ class ViewController: UIViewController {
 
     private func exitApp() {
         player?.pause()
-
-        // Deactivate audio session cleanly
         try? AVAudioSession.sharedInstance().setActive(false)
-
         NotificationCenter.default.removeObserver(self)
-        player?.currentItem?.removeObserver(self, forKeyPath: #keyPath(AVPlayerItem.status))
-
+        player?.currentItem?.removeObserver(
+            self,
+            forKeyPath: #keyPath(AVPlayerItem.status)
+        )
         UIApplication.shared.perform(#selector(NSXPCConnection.suspend))
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             exit(0)
