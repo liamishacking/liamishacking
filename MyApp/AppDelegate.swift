@@ -11,7 +11,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
 
-        // Set up audio session as early as possible
         do {
             try AVAudioSession.sharedInstance().setCategory(
                 .playback,
@@ -30,7 +29,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     }
 
     func applicationWillResignActive(_ application: UIApplication) {
-        // Keep audio session active in background
         try? AVAudioSession.sharedInstance().setActive(true)
     }
 
